@@ -1,0 +1,4 @@
+This is a template file that you CAN safely share on GitHub.
+It shows other developers what environment variables are needed for the app to run.
+They will need to rename this file to ".env" and add their own keys.
+GEMINI_API_KEY="YOUR_GEMINI_API_KEY_HERE"

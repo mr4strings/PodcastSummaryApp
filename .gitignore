@@ -1,0 +1,22 @@
+#This file tells Git which files and folders to ignore.
+#Anything listed here will NOT be uploaded to GitHub.
+#Ignore Python's cache and virtual environment files
+pycache/
+.pyc
+.venv
+venv/
+
+#--- CRITICAL: IGNORE SECRET FILES ---
+#Ignore the file containing your actual API keys.
+.env
+
+#Ignore Google OAuth credentials and tokens. These are unique to you.
+credentials.json
+token.json
+
+#Ignore generated output files. There's no need to store these in the repository.
+output_epubs/
+temp_episode.mp3
+
+#Ignore VS Code specific settings
+.vscode/
