@@ -1,7 +1,7 @@
 #This file tells Git which files and folders to ignore.
 #Anything listed here will NOT be uploaded to GitHub.
 #Ignore Python's cache and virtual environment files
-pycache/
+__pycache__\
 .pyc
 .venv
 venv/
@@ -9,6 +9,7 @@ venv/
 #--- CRITICAL: IGNORE SECRET FILES ---
 #Ignore the file containing your actual API keys.
 .env
+rss_feed.txt
 
 #Ignore Google OAuth credentials and tokens. These are unique to you.
 credentials.json
