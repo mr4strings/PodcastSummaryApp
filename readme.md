@@ -6,6 +6,8 @@ Monitors Multiple Podcasts: Easily track any number of podcasts by adding their 
 
 Automated Daily Checks: Runs automatically every day to find and process episodes published within the last 36 hours.
 
+Duplicate Prevention: Keeps a log of processed episodes to ensure the same episode is never processed more than once.
+
 Free Local Transcription: Utilizes the powerful, open-source Whisper model to perform high-quality audio transcription directly on your machine at no cost.
 
 AI-Powered Summarization: Leverages the Google Gemini API to generate:
@@ -20,24 +22,26 @@ A list of any sources referenced.
 
 Speaker Identification (Diarization): Uses the LLM to intelligently format the raw transcript into a readable script, identifying and labeling the different speakers.
 
-ePub Creation: Packages the summary, key points, quotes, sources, and the full formatted transcript into a clean, easy-to-read ePub file.
+ePub Creation: Packages all generated content into a clean, easy-to-read ePub file.
 
 Automatic Cloud Upload: Securely uploads the final ePub file to a specific folder in your Google Drive.
 
 How It Works
 The application follows a simple, automated pipeline:
 
-Fetch: Parses the rss_feeds.txt file and checks each feed for new episodes.
+Check History: Reads processed_episodes.log to get a list of episodes that have already been processed.
+
+Fetch: Parses rss_feeds.txt and checks each feed for new episodes that are not in the history log.
 
 Transcribe: Downloads the audio for each new episode and uses the local Whisper model to generate a raw text transcript.
 
-Summarize: Sends the raw transcript to the Gemini API to generate the summary, major points, quotes, and sources.
-
-Diarize: Sends the raw transcript to the Gemini API again with a special prompt to format it into a script with speaker labels.
+Summarize & Diarize: Sends the transcript to the Gemini API for both summarization and speaker identification.
 
 Generate: Assembles all the generated content into a well-formatted ePub file.
 
-Upload: Authenticates with the Google Drive API and uploads the ePub to your designated folder.
+Upload: Uploads the ePub to your designated Google Drive folder.
+
+Log Success: After a successful upload, writes the episode's unique ID to processed_episodes.log to prevent future reprocessing.
 
 Setup and Installation Guide
 Follow these steps to get the application running on your local machine.

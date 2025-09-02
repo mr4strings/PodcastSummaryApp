@@ -18,12 +18,25 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 GOOGLE_DRIVE_FOLDER_ID = "1w6tUaUAoIQPOhxbrwm7kCR6NKP_3oIby"
 RSS_FEEDS_FILE = 'rss_feeds.txt'
 OUTPUT_DIR = 'output_epubs'
+PROCESSED_LOG_FILE = 'processed_episodes.log' # Define the log file name here as well.
+
+def _log_processed_episode(episode_id):
+    """Appends a successfully processed episode ID to the log file."""
+    try:
+        # We open the file in 'append' mode ('a') to add the new ID to the end.
+        with open(PROCESSED_LOG_FILE, 'a') as f:
+            f.write(f"{episode_id}\n")
+        logging.info(f"Successfully logged episode {episode_id} as processed.")
+    except Exception as e:
+        logging.error(f"Failed to write to processed log for episode {episode_id}: {e}")
+
 
 def process_podcasts():
     """
     The main function that orchestrates the entire process of fetching,
     processing, and uploading podcast episodes.
     """
+    # ... (code for starting up and creating output dir remains the same) ...
     logging.info("Starting the daily podcast check...")
 
     if not os.path.exists(OUTPUT_DIR):
@@ -40,37 +53,34 @@ def process_podcasts():
     logging.info(f"Found {len(new_episodes)} new episode(s).")
 
     for episode in new_episodes:
+        # ... (the main 'try' block for processing an episode remains the same) ...
         logging.info(f"Processing episode: '{episode['title']}' from '{episode['podcast_title']}'")
 
         try:
-            # 2. Transcribe the episode
-            # This returns the raw, unformatted block of text from Whisper.
+            # Transcribe the episode
             raw_transcript = transcriber.transcribe_episode(episode)
             if not raw_transcript:
                 logging.warning(f"Transcription failed for '{episode['title']}'. Skipping.")
                 continue
             logging.info("Transcription successful.")
 
-            # 3. Process with LLM for Summarization
-            # We send the raw transcript to get the summary, points, quotes, etc.
+            # Process with LLM for Summarization
             logging.info("Generating content summary with LLM...")
             processed_content = llm_processor.process_transcript_with_llm(raw_transcript, episode['title'])
-
             if not processed_content:
                 logging.warning(f"LLM content generation failed for '{episode['title']}'. Skipping.")
                 continue
             logging.info("LLM content generation successful.")
             logging.info(f"LLM generated content: {processed_content}")
 
-            # 4. Format Transcript with LLM for Diarization (NEW STEP)
-            # We send the raw transcript again, but this time with a prompt asking for script formatting.
+            # Format Transcript with LLM for Diarization
             logging.info("Formatting transcript for speaker diarization with LLM...")
             formatted_transcript = llm_processor.diarize_transcript_with_llm(raw_transcript)
             if not formatted_transcript:
                 logging.warning(f"LLM diarization failed for '{episode['title']}'. Using raw transcript.")
-                formatted_transcript = raw_transcript # Fallback to the raw transcript if formatting fails
-
-            # 5. Generate ePub
+                formatted_transcript = raw_transcript
+            
+            # Generate ePub
             sanitized_episode_title = "".join(c for c in episode['title'] if c.isalnum() or c in (' ', '.', '_')).rstrip()
             current_date = time.strftime("%Y-%m-%d")
             file_name = f"{current_date}_{episode['podcast_title']}_{sanitized_episode_title}.epub"
@@ -84,22 +94,28 @@ def process_podcasts():
                 major_points=processed_content['major_points'],
                 quotes=processed_content['quotes'],
                 sources=processed_content['sources'],
-                # We now pass the nicely formatted transcript to the ePub generator.
                 transcript=formatted_transcript,
                 file_path=file_path
             )
             logging.info(f"ePub file created at: {file_path}")
 
-            # 6. Upload to Google Drive
+            # Upload to Google Drive
+            upload_successful = False # Default to false
             if GOOGLE_DRIVE_FOLDER_ID != "YOUR_GOOGLE_DRIVE_FOLDER_ID":
                 logging.info(f"Uploading to Google Drive...")
                 upload_successful = google_drive_uploader.upload_file_to_drive(file_path, GOOGLE_DRIVE_FOLDER_ID)
                 if upload_successful:
                     logging.info(f"Successfully uploaded '{file_name}' to Google Drive.")
                 else:
-                    logging.error(f"Failed to upload '{file_name}' to Google Drive. Please check the logs above for details.")
+                    logging.error(f"Failed to upload '{file_name}' to Google Drive.")
             else:
                 logging.warning("Google Drive Folder ID is not set. Skipping upload.")
+
+            # --- LOG PROCESSED EPISODE (THE FINAL STEP) ---
+            # If the ePub was created and the upload was successful (or skipped),
+            # we log the episode ID to prevent re-processing.
+            if upload_successful or GOOGLE_DRIVE_FOLDER_ID == "YOUR_GOOGLE_DRIVE_FOLDER_ID":
+                _log_processed_episode(episode['id'])
 
         except Exception as e:
             logging.error(f"An error occurred while processing episode '{episode['title']}': {e}", exc_info=True)
@@ -112,7 +128,7 @@ def main():
     Main entry point of the application. Schedules the job and runs it.
     """
     logging.info("Application started. Scheduling job.")
-    schedule.every().day.at("08:00").do(process_podcasts)
+    schedule.every().day.at("05:00").do(process_podcasts)
     process_podcasts() 
     while True:
         schedule.run_pending()
