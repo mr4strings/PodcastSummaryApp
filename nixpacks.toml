@@ -1,0 +1,6 @@
+# nixpacks.toml
+# This file configures the Nixpacks build system (used by Railway) 
+# to install ffmpeg as a system dependency, which is required by Whisper.
+
+[phases.setup]
+nixPkgs = ["ffmpeg"]

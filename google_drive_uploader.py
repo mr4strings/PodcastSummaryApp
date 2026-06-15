@@ -4,7 +4,7 @@
 # NOTE: This requires setting up a Google Cloud Platform project and
 #       OAuth 2.0 credentials. See the README.md for instructions.
 
-import os.path
+import os
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -21,7 +21,26 @@ def get_credentials():
     Handles user authentication for the Google Drive API.
     It looks for a 'token.json' file which stores the user's access and refresh tokens.
     If it's not found or invalid, it will launch a browser window for the user to log in.
+    Supports bootstrapping these files from environment variables for headless environments.
     """
+    # Bootstrap credentials.json from environment variable if it exists and file doesn't
+    if not os.path.exists('credentials.json') and os.environ.get('GOOGLE_DRIVE_CREDENTIALS'):
+        logging.info("Recreating credentials.json from GOOGLE_DRIVE_CREDENTIALS environment variable.")
+        try:
+            with open('credentials.json', 'w') as f:
+                f.write(os.environ.get('GOOGLE_DRIVE_CREDENTIALS'))
+        except Exception as e:
+            logging.error(f"Failed to write credentials.json from environment: {e}")
+
+    # Bootstrap token.json from environment variable if it exists and file doesn't
+    if not os.path.exists('token.json') and os.environ.get('GOOGLE_DRIVE_TOKEN'):
+        logging.info("Recreating token.json from GOOGLE_DRIVE_TOKEN environment variable.")
+        try:
+            with open('token.json', 'w') as f:
+                f.write(os.environ.get('GOOGLE_DRIVE_TOKEN'))
+        except Exception as e:
+            logging.error(f"Failed to write token.json from environment: {e}")
+
     creds = None
     if os.path.exists('token.json'):
         creds = Credentials.from_authorized_user_file('token.json', SCOPES)

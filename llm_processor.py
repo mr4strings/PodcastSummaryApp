@@ -27,14 +27,14 @@ def process_transcript_with_llm(transcript_text, episode_title):
     response_text = None
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.5-flash-preview-05-20')
+        model = genai.GenerativeModel('gemini-2.5-flash')
 
         prompt = f"""
         You are an expert podcast analyst. Your task is to analyze the following podcast transcript for the episode titled "{episode_title}" and provide a structured summary.
 
-        Transcript (first 10,000 characters):
+        Transcript:
         ---
-        {transcript_text[:10000]} 
+        {transcript_text} 
         ---
 
         Your response MUST be a single, valid JSON object and nothing else. Do not include any explanatory text or markdown formatting.
@@ -87,50 +87,9 @@ def process_transcript_with_llm(transcript_text, episode_title):
 
 def diarize_transcript_with_llm(transcript_text):
     """
-    Uses the Gemini API to format a raw transcript into a script-like format
-    with speaker labels (a process called diarization).
-
-    Args:
-        transcript_text (str): The raw transcript text.
-
-    Returns:
-        str: The formatted transcript with speaker labels, or None if an error occurs.
+    Since transcription is now performed natively by Gemini, the transcript is
+    already properly formatted and diarized. This function acts as a pass-through.
     """
-    load_dotenv()
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        logging.error("GEMINI_API_KEY environment variable not found for diarization.")
-        return None
-
-    try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.5-flash-preview-05-20')
-
-        # This prompt is specifically engineered for the formatting task.
-        prompt = f"""
-        You are an expert transcript editor. Your task is to take the following raw text from a podcast transcript and reformat it into a script, identifying and labeling the speakers.
-
-        Use labels like "Host:", "Guest 1:", "Guest 2:", etc. If you can identify a speaker's name from the context, use it (e.g., "Nilay:"). Ensure each speaker's dialogue is on a new line.
-
-        Do not summarize or change the content. Only add speaker labels and line breaks.
-
-        Here is an example of the desired output format:
-        ---
-        Host: Welcome back to the show. Today, we're joined by a special guest.
-        Guest 1: Thanks for having me. I'm excited to be here.
-        ---
-
-        Now, please reformat the following transcript:
-        ---
-        {transcript_text}
-        ---
-        """
-        
-        response = model.generate_content(prompt)
-        logging.info("Gemini diarization processing complete.")
-        return response.text
-
-    except Exception as e:
-        logging.error(f"An unexpected error occurred during diarization with Gemini: {e}", exc_info=True)
-        return None
+    logging.info("Transcript was already diarized natively. Skipping secondary formatting.")
+    return transcript_text
 

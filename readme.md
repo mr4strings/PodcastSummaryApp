@@ -148,3 +148,37 @@ Running Unit Tests
 To verify that the transcriber module is working correctly without processing a full podcast, you can run the included unit tests:
 
 python test_transcriber.py
+
+
+## GitHub Preparation
+
+To keep your credentials secure when sharing this code on GitHub, ensure you follow these practices:
+1. **Never commit sensitive files:** The `.gitignore` is pre-configured to ignore `.env`, `credentials.json`, `token.json`, and generated outputs.
+2. **Share the configuration template:** Use `.env.example` as a starting template for other contributors to set up their environment variables.
+
+## Deploying to Railway
+
+Railway is an excellent platform to host the Podcast Summarizer as a background worker process that runs daily.
+
+### 1. System Dependencies (ffmpeg)
+Whisper requires `ffmpeg`. The project includes a `nixpacks.toml` file which tells Railway's build system (Nixpacks) to automatically provision `ffmpeg` at build time.
+
+### 2. Google Drive Headless Authentication
+Because a cloud container cannot launch a local browser to complete the Google OAuth process:
+1. Run the application locally first and complete the authorization. This creates `token.json` in your local directory.
+2. Copy the contents of your local `credentials.json` and `token.json` files.
+3. You will paste these JSON contents into the environment variables on Railway (see below). The application will automatically recreate the files at startup when deployed.
+
+### 3. Railway Configuration
+1. Create a new service on [Railway](https://railway.app) and link it to your GitHub repository.
+2. In the service settings, set the **Start Command** to:
+   ```bash
+   python main.py
+   ```
+3. Add the following **Environment Variables** in the Railway dashboard:
+   - `GEMINI_API_KEY`: Your Google Gemini API Key.
+   - `GOOGLE_DRIVE_FOLDER_ID`: The ID of your target Google Drive folder.
+   - `WHISPER_MODEL`: (Optional) Defaults to `base`. Set to `tiny` if you are on a restricted-memory container to prevent Out-Of-Memory (OOM) crashes.
+   - `GOOGLE_DRIVE_CREDENTIALS`: The raw JSON contents of your `credentials.json`.
+   - `GOOGLE_DRIVE_TOKEN`: The raw JSON contents of your `token.json`.
+

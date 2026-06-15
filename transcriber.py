@@ -1,8 +1,9 @@
 import logging
 import requests
 import os
-import whisper
+import google.generativeai as genai
 import time
+from dotenv import load_dotenv
 
 def _find_audio_url(episode):
     """
@@ -54,13 +55,13 @@ def _find_audio_url(episode):
 
 def transcribe_episode(episode):
     """
-    Downloads an episode's audio and transcribes it locally using the open-source Whisper model.
+    Downloads an episode's audio and transcribes it natively using the Gemini API.
 
     Args:
         episode (dict): The episode dictionary containing the audio URL.
 
     Returns:
-        str: The transcribed text of the episode, or None if transcription fails.
+        str: The transcribed and diarized text of the episode, or None if transcription fails.
     """
     
     # --- 1. Find the Audio URL using our robust helper function ---
@@ -86,31 +87,70 @@ def transcribe_episode(episode):
         logging.error(f"Failed to download audio file: {e}")
         return None
 
-    # --- 3. Transcribe with Local Whisper Model ---
+    # --- 3. Transcribe and Diarize with Gemini API ---
+    audio_file = None
     transcript_text = None
     try:
-        logging.info("Loading local Whisper model ('base'). This might take a moment...")
-        model = whisper.load_model("base")
+        load_dotenv()
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            logging.error("GEMINI_API_KEY environment variable not found.")
+            return None
+
+        genai.configure(api_key=api_key)
+
+        logging.info("Uploading audio file to Gemini File API...")
+        audio_file = genai.upload_file(path=temp_audio_path)
+        logging.info(f"File uploaded successfully. Name: {audio_file.name}. State: {audio_file.state.name}")
+
+        # Poll the upload status until the file is active.
+        # Audio is usually quick, but polling guarantees safety.
+        while audio_file.state.name == "PROCESSING":
+            logging.info("Waiting for audio file to be processed by Gemini...")
+            time.sleep(5)
+            audio_file = genai.get_file(audio_file.name)
+
+        if audio_file.state.name != "ACTIVE":
+            raise ValueError(f"Gemini file processing failed (state is {audio_file.state.name})")
+
+        logging.info("Audio file is active. Requesting Gemini transcription and diarization...")
         
-        logging.info("Model loaded. Starting local transcription...")
+        # Use gemini-2.5-flash as default, since it supports audio and is fast.
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        
+        prompt = """
+        Transcribe the following audio recording. Identify and label the speakers (e.g., Nilay, Host, Guest 1, etc.) from context, formatting the output as a script with each speaker's dialogue on a new line. Do not summarize or omit any conversation.
+        """
+        
         start_time = time.time()
-        
-        result = model.transcribe(temp_audio_path)
-        transcript_text = result["text"]
+        response = model.generate_content([audio_file, prompt])
+        transcript_text = response.text
         
         end_time = time.time()
         duration = end_time - start_time
-        logging.info(f"Transcription successful in {duration:.2f} seconds.")
-        
+        logging.info(f"Transcription and diarization completed successfully in {duration:.2f} seconds.")
+
     except Exception as e:
-        logging.error(f"An unexpected error occurred during local transcription: {e}", exc_info=True)
+        logging.error(f"An unexpected error occurred during Gemini transcription: {e}", exc_info=True)
         return None
         
     # --- 4. Clean Up ---
     finally:
+        # 1. Remove local temporary file
         if os.path.exists(temp_audio_path):
-            os.remove(temp_audio_path)
-            logging.info(f"Cleaned up temporary audio file: {temp_audio_path}")
+            try:
+                os.remove(temp_audio_path)
+                logging.info(f"Cleaned up local temporary audio file: {temp_audio_path}")
+            except Exception as e:
+                logging.error(f"Failed to delete local temp audio file: {e}")
+                
+        # 2. Delete the file from Google Gemini storage
+        if audio_file is not None:
+            try:
+                genai.delete_file(audio_file.name)
+                logging.info(f"Cleaned up remote Gemini File API upload: {audio_file.name}")
+            except Exception as e:
+                logging.error(f"Failed to delete remote Gemini file: {e}")
             
     return transcript_text
 

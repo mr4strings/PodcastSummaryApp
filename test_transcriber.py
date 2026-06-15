@@ -16,47 +16,58 @@ class TestTranscriber(unittest.TestCase):
     This makes the tests fast, reliable, and able to run offline.
     """
 
-    # We use the @patch decorator to replace a function with a mock object.
-    # The mocks are passed into the test method from the bottom up (so 'mock_whisper' is first).
-    @patch('transcriber.whisper.load_model')
+    # We use the @patch decorator to replace functions with mock objects.
+    @patch('transcriber.genai.GenerativeModel')
+    @patch('transcriber.genai.delete_file')
+    @patch('transcriber.genai.upload_file')
     @patch('transcriber.requests.get')
-    def test_successful_transcription(self, mock_requests_get, mock_whisper_load_model):
+    @patch('transcriber.os.getenv', return_value="fake_api_key")
+    def test_successful_transcription(self, mock_getenv, mock_requests_get, mock_upload_file, mock_delete_file, mock_generative_model):
         """
-        Tests the entire transcription process by mocking the download and transcription steps.
+        Tests the entire transcription process by mocking the download and Gemini API steps.
         This is our new, reliable "happy path" test.
         """
         print("\n--- Running Test: Successful Transcription (with Mocks) ---")
 
         # --- 1. Setup the Mocks ---
-        # Mock the successful download of an audio file.
-        # We configure the context manager that `requests.get` returns.
+        # Mock requests.get for audio download
         mock_response = MagicMock()
         mock_response.__enter__.return_value.iter_content.return_value = [b"fake_audio_chunk"]
         mock_requests_get.return_value = mock_response
 
-        # Mock the Whisper transcription result.
-        mock_model = MagicMock()
-        mock_model.transcribe.return_value = {'text': 'Hello world'}
-        mock_whisper_load_model.return_value = mock_model
+        # Mock the Gemini File Upload object
+        mock_file = MagicMock()
+        mock_file.name = "files/test-file-123"
+        mock_file.state.name = "ACTIVE"
+        mock_upload_file.return_value = mock_file
+
+        # Mock the Gemini GenerativeModel response
+        mock_model_instance = MagicMock()
+        mock_response_content = MagicMock()
+        mock_response_content.text = "Hello world"
+        mock_model_instance.generate_content.return_value = mock_response_content
+        mock_generative_model.return_value = mock_model_instance
         
-        # Create a mock episode dictionary. The URL can be anything now.
+        # Create a mock episode dictionary
         mock_episode = {
             'title': 'Test Success Episode',
             'links': [{'rel': 'enclosure', 'href': 'http://fake-audio-url.com/episode.mp3'}]
         }
 
-        # --- 2. Action: Call the function we want to test ---
+        # --- 2. Action ---
         transcript = transcribe_episode(mock_episode)
 
-        # --- 3. Assertions: Check if our code handled the mock data correctly ---
+        # --- 3. Assertions ---
         self.assertIsNotNone(transcript, "FAIL: Transcript should not be None.")
         self.assertEqual(transcript, "Hello world", "FAIL: Transcript did not match the mocked output.")
         
-        # Verify that our mocks were actually called.
+        # Verify that our mocks were actually called
         mock_requests_get.assert_called_once_with('http://fake-audio-url.com/episode.mp3', stream=True, headers=unittest.mock.ANY)
-        mock_model.transcribe.assert_called_once()
+        mock_upload_file.assert_called_once_with(path="temp_episode.mp3")
+        mock_model_instance.generate_content.assert_called_once()
+        mock_delete_file.assert_called_once_with("files/test-file-123")
         
-        print("--- SUCCESS: Function correctly handled mocked download and transcription. ---")
+        print("--- SUCCESS: Function correctly handled mocked download and Gemini API calls. ---")
 
     @patch('transcriber.requests.get')
     def test_download_failure(self, mock_requests_get):

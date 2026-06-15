@@ -15,7 +15,8 @@ import google_drive_uploader
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # The ID of the Google Drive folder where you want to save the ePubs.
-GOOGLE_DRIVE_FOLDER_ID = "1w6tUaUAoIQPOhxbrwm7kCR6NKP_3oIby"
+# Fallback to the current user's folder ID if not set in the environment.
+GOOGLE_DRIVE_FOLDER_ID = os.environ.get("GOOGLE_DRIVE_FOLDER_ID", "1w6tUaUAoIQPOhxbrwm7kCR6NKP_3oIby")
 RSS_FEEDS_FILE = 'rss_feeds.txt'
 OUTPUT_DIR = 'output_epubs'
 PROCESSED_LOG_FILE = 'processed_episodes.log' # Define the log file name here as well.
