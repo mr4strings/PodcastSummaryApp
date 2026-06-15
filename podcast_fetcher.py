@@ -47,6 +47,7 @@ def get_new_episodes(rss_feeds_file):
     logging.info(f"Loaded {len(processed_ids)} previously processed episode IDs.")
 
     new_episodes = []
+    seen_ids = set() # Track episode IDs processed in this run to avoid duplicates
     now_utc = datetime.now(timezone.utc)
     time_cutoff = now_utc - timedelta(hours=36)
     
@@ -56,7 +57,6 @@ def get_new_episodes(rss_feeds_file):
     user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
 
     for feed_url in feeds:
-        # ... (code for fetching and parsing the feed remains the same) ...
         logging.info(f"Parsing feed: {feed_url}")
         try:
             headers = {'User-Agent': user_agent}
@@ -89,11 +89,12 @@ def get_new_episodes(rss_feeds_file):
                     f"Checking Episode: '{entry.get('title', 'No Title')}' | "
                     f"Published: {episode_pub_time_utc.isoformat()} | "
                     f"Is it new? {episode_pub_time_utc > time_cutoff} | "
-                    f"Already processed? {episode_id in processed_ids}"
+                    f"Already processed? {episode_id in processed_ids} | "
+                    f"Already seen in this run? {episode_id in seen_ids}"
                 )
 
-                # An episode is only added if it's both recent AND its ID is not in our log.
-                if episode_pub_time_utc > time_cutoff and episode_id not in processed_ids:
+                # An episode is only added if it's both recent AND its ID is not in our log, AND it hasn't been added yet in this run.
+                if episode_pub_time_utc > time_cutoff and episode_id not in processed_ids and episode_id not in seen_ids:
                     episode_info = {
                         'id': episode_id, # We must include the ID now.
                         'title': entry.get('title', 'No Title'),
@@ -103,6 +104,7 @@ def get_new_episodes(rss_feeds_file):
                         'media_content': entry.get('media_content', [])
                     }
                     new_episodes.append(episode_info)
+                    seen_ids.add(episode_id)
                     logging.info(f"Found new episode to process: '{episode_info['title']}' from '{podcast_title}'")
         
         except requests.exceptions.RequestException as e:

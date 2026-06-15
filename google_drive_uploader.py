@@ -5,12 +5,13 @@
 #       OAuth 2.0 credentials. See the README.md for instructions.
 
 import os
+import io
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from googleapiclient.http import MediaFileUpload
+from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 import logging
 
 # If modifying these scopes, delete the file token.json.
@@ -128,9 +129,15 @@ def download_processed_log_from_drive(local_path, folder_id):
         file_id = files[0]['id']
         logging.info(f"Found processed_episodes.log on Google Drive with ID: {file_id}. Downloading...")
         
-        # Download the file content directly as bytes
-        drive_bytes = service.files().get_media(fileId=file_id).execute()
-        drive_content = drive_bytes.decode('utf-8')
+        # Download the file content using MediaIoBaseDownload to avoid json parsing error in execute()
+        request = service.files().get_media(fileId=file_id)
+        fh = io.BytesIO()
+        downloader = MediaIoBaseDownload(fh, request)
+        done = False
+        while not done:
+            status, done = downloader.next_chunk()
+            
+        drive_content = fh.getvalue().decode('utf-8')
         drive_ids = {line.strip() for line in drive_content.split('\n') if line.strip()}
         
         # Merge with existing local file if it exists

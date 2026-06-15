@@ -28,6 +28,11 @@ PROCESSED_LOG_FILE = os.environ.get("PROCESSED_LOG_FILE", "processed_episodes.lo
 def _log_processed_episode(episode_id):
     """Appends a successfully processed episode ID to the log file and syncs it to Google Drive."""
     try:
+        # Ensure parent directory of PROCESSED_LOG_FILE exists
+        dir_name = os.path.dirname(PROCESSED_LOG_FILE)
+        if dir_name and not os.path.exists(dir_name):
+            os.makedirs(dir_name, exist_ok=True)
+
         # We open the file in 'append' mode ('a') to add the new ID to the end.
         with open(PROCESSED_LOG_FILE, 'a') as f:
             f.write(f"{episode_id}\n")
