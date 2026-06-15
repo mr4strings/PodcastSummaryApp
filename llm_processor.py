@@ -27,8 +27,8 @@ def process_transcript_with_llm(transcript_text, episode_title):
     response_text = None
     try:
         genai.configure(api_key=api_key)
-        # Use gemini-3.5-flash since it has standard high-quota free tier limits
-        model = genai.GenerativeModel('gemini-3.5-flash')
+        # Use gemini-2.5-flash (paid account upgraded)
+        model = genai.GenerativeModel('gemini-2.5-flash')
 
         prompt = f"""
         You are an expert podcast analyst. Your task is to analyze the following podcast transcript for the episode titled "{episode_title}" and provide a structured summary.
