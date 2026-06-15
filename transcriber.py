@@ -115,16 +115,35 @@ def transcribe_episode(episode):
 
         logging.info("Audio file is active. Requesting Gemini transcription and diarization...")
         
-        # Use gemini-2.5-flash as default, since it supports audio and is fast.
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        # Use gemini-1.5-flash since it has a 1,500 requests/day free tier quota (vs 20/day on gemini-2.5-flash)
+        model = genai.GenerativeModel('gemini-1.5-flash')
         
         prompt = """
         Transcribe the following audio recording. Identify and label the speakers (e.g., Nilay, Host, Guest 1, etc.) from context, formatting the output as a script with each speaker's dialogue on a new line. Do not summarize or omit any conversation.
         """
         
         start_time = time.time()
-        response = model.generate_content([audio_file, prompt])
-        transcript_text = response.text
+        
+        # Call Gemini with basic retry logic to handle potential 429 Rate Limits
+        max_retries = 3
+        delay = 5
+        response = None
+        for attempt in range(max_retries):
+            try:
+                response = model.generate_content([audio_file, prompt])
+                break
+            except Exception as e:
+                if "429" in str(e) or "ResourceExhausted" in type(e).__name__:
+                    if attempt == max_retries - 1:
+                        raise
+                    logging.warning(f"Gemini API rate limit hit (429). Retrying in {delay} seconds...")
+                    time.sleep(delay)
+                    delay *= 2
+                else:
+                    raise
+
+        if response:
+            transcript_text = response.text
         
         end_time = time.time()
         duration = end_time - start_time

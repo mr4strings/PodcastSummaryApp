@@ -27,7 +27,8 @@ def process_transcript_with_llm(transcript_text, episode_title):
     response_text = None
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        # Use gemini-1.5-flash since it has a 1,500 requests/day free tier quota (vs 20/day on gemini-2.5-flash)
+        model = genai.GenerativeModel('gemini-1.5-flash')
 
         prompt = f"""
         You are an expert podcast analyst. Your task is to analyze the following podcast transcript for the episode titled "{episode_title}" and provide a structured summary.
@@ -60,9 +61,26 @@ def process_transcript_with_llm(transcript_text, episode_title):
         ```
         """
 
-        # Make the API call to the Gemini model with the prepared prompt.
-        response = model.generate_content(prompt)
-        response_text = response.text
+        # Call Gemini with basic retry logic to handle potential 429 Rate Limits
+        max_retries = 3
+        delay = 5
+        response = None
+        for attempt in range(max_retries):
+            try:
+                response = model.generate_content(prompt)
+                break
+            except Exception as e:
+                if "429" in str(e) or "ResourceExhausted" in type(e).__name__:
+                    if attempt == max_retries - 1:
+                        raise
+                    logging.warning(f"Gemini API rate limit hit (429). Retrying in {delay} seconds...")
+                    time.sleep(delay)
+                    delay *= 2
+                else:
+                    raise
+
+        if response:
+            response_text = response.text
         
         # Clean up potential markdown formatting (like ```json) from the response.
         if response_text.strip().startswith("```json"):
