@@ -1,7 +1,11 @@
+import os
+from dotenv import load_dotenv
+# Load environment variables at the very start
+load_dotenv()
+
 import logging
 import schedule
 import time
-import os
 
 # Import the modular components of our application
 import podcast_fetcher
@@ -16,18 +20,23 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 
 # The ID of the Google Drive folder where you want to save the ePubs.
 # Fallback to the current user's folder ID if not set in the environment.
-GOOGLE_DRIVE_FOLDER_ID = os.environ.get("GOOGLE_DRIVE_FOLDER_ID", "1w6tUaUAoIQPOhxbrwm7kCR6NKP_3oIby")
+GOOGLE_DRIVE_FOLDER_ID = os.environ.get("GOOGLE_DRIVE_FOLDER_ID", "1w6tUaUAoIQPOhxbrwm7kCR6NKP_3oIby").strip("'\"")
 RSS_FEEDS_FILE = 'rss_feeds.txt'
 OUTPUT_DIR = 'output_epubs'
-PROCESSED_LOG_FILE = os.environ.get("PROCESSED_LOG_FILE", "processed_episodes.log") # Define the log file name here as well.
+PROCESSED_LOG_FILE = os.environ.get("PROCESSED_LOG_FILE", "processed_episodes.log").strip("'\"")
 
 def _log_processed_episode(episode_id):
-    """Appends a successfully processed episode ID to the log file."""
+    """Appends a successfully processed episode ID to the log file and syncs it to Google Drive."""
     try:
         # We open the file in 'append' mode ('a') to add the new ID to the end.
         with open(PROCESSED_LOG_FILE, 'a') as f:
             f.write(f"{episode_id}\n")
         logging.info(f"Successfully logged episode {episode_id} as processed.")
+        
+        # Sync the log file to Google Drive
+        if GOOGLE_DRIVE_FOLDER_ID != "YOUR_GOOGLE_DRIVE_FOLDER_ID":
+            logging.info("Syncing updated processed episodes log to Google Drive...")
+            google_drive_uploader.upload_processed_log_to_drive(PROCESSED_LOG_FILE, GOOGLE_DRIVE_FOLDER_ID)
     except Exception as e:
         logging.error(f"Failed to write to processed log for episode {episode_id}: {e}")
 
@@ -44,12 +53,19 @@ def process_podcasts():
         os.makedirs(OUTPUT_DIR)
         logging.info(f"Created output directory: {OUTPUT_DIR}")
 
+    # Sync processed log from Google Drive at the beginning of the check
+    if GOOGLE_DRIVE_FOLDER_ID != "YOUR_GOOGLE_DRIVE_FOLDER_ID":
+        logging.info("Syncing processed episodes log from Google Drive...")
+        google_drive_uploader.download_processed_log_from_drive(PROCESSED_LOG_FILE, GOOGLE_DRIVE_FOLDER_ID)
+
     logging.info("Fetching new podcast episodes...")
     feeds_file = RSS_FEEDS_FILE
-    rss_feeds_env = os.environ.get("RSS_FEEDS")
+    rss_feeds_env = os.environ.get("RSS_FEEDS") or os.environ.get("RSS_FEED")
     if rss_feeds_env:
         logging.info("RSS_FEEDS environment variable found. Parsing feeds from environment...")
-        urls = [url.strip() for url in rss_feeds_env.replace(",", "\n").replace(";", "\n").split("\n") if url.strip()]
+        # Strip leading/trailing quotes from the whole env var string (common issue when pasting)
+        rss_feeds_env_cleaned = rss_feeds_env.strip("'\"")
+        urls = [url.strip().strip("'\"") for url in rss_feeds_env_cleaned.replace(",", "\n").replace(";", "\n").split("\n") if url.strip()]
         feeds_file = 'rss_feeds_temp.txt'
         with open(feeds_file, 'w') as f:
             f.write("\n".join(urls))

@@ -101,4 +101,106 @@ def upload_file_to_drive(file_path, folder_id):
     except Exception as e:
         logging.error(f'An error occurred during Google Drive upload: {e}')
         return False
+
+
+def download_processed_log_from_drive(local_path, folder_id):
+    """
+    Downloads the processed_episodes.log from Google Drive to local_path,
+    merging with the local log if it already exists.
+    """
+    try:
+        creds = get_credentials()
+        if not creds:
+            logging.error("Could not obtain Google Drive credentials for downloading log.")
+            return False
+
+        service = build('drive', 'v3', credentials=creds)
+        
+        # Search for processed_episodes.log in the specified folder
+        query = f"name = 'processed_episodes.log' and '{folder_id}' in parents and trashed = false"
+        results = service.files().list(q=query, fields="files(id)").execute()
+        files = results.get('files', [])
+        
+        if not files:
+            logging.info("processed_episodes.log not found on Google Drive. This is normal for a first run.")
+            return False
+
+        file_id = files[0]['id']
+        logging.info(f"Found processed_episodes.log on Google Drive with ID: {file_id}. Downloading...")
+        
+        # Download the file content directly as bytes
+        drive_bytes = service.files().get_media(fileId=file_id).execute()
+        drive_content = drive_bytes.decode('utf-8')
+        drive_ids = {line.strip() for line in drive_content.split('\n') if line.strip()}
+        
+        # Merge with existing local file if it exists
+        local_ids = set()
+        if os.path.exists(local_path):
+            try:
+                with open(local_path, 'r') as f:
+                    local_ids = {line.strip() for line in f if line.strip()}
+            except Exception as e:
+                logging.error(f"Error reading local processed log: {e}")
+                
+        merged_ids = drive_ids.union(local_ids)
+        
+        # Ensure directory exists for local_path if it's nested (e.g. /data/processed_episodes.log)
+        dir_name = os.path.dirname(local_path)
+        if dir_name and not os.path.exists(dir_name):
+            os.makedirs(dir_name)
+            
+        # Write merged IDs back to local path
+        with open(local_path, 'w') as f:
+            f.write('\n'.join(sorted(merged_ids)) + '\n')
+            
+        logging.info(f"Successfully downloaded and merged {len(merged_ids)} processed episode IDs from Google Drive.")
+        return True
+        
+    except Exception as e:
+        logging.error(f"Error downloading processed episodes log from Google Drive: {e}")
+        return False
+
+
+def upload_processed_log_to_drive(local_path, folder_id):
+    """
+    Uploads or updates the processed_episodes.log on Google Drive with local contents.
+    """
+    try:
+        if not os.path.exists(local_path):
+            logging.warning(f"Local processed log {local_path} does not exist. Skipping upload.")
+            return False
+            
+        creds = get_credentials()
+        if not creds:
+            logging.error("Could not obtain Google Drive credentials for uploading log.")
+            return False
+
+        service = build('drive', 'v3', credentials=creds)
+        
+        # Search for processed_episodes.log in the specified folder
+        query = f"name = 'processed_episodes.log' and '{folder_id}' in parents and trashed = false"
+        results = service.files().list(q=query, fields="files(id)").execute()
+        files = results.get('files', [])
+        
+        media = MediaFileUpload(local_path, mimetype='text/plain', resumable=True)
+        
+        if files:
+            file_id = files[0]['id']
+            logging.info(f"Updating existing processed_episodes.log on Google Drive (ID: {file_id})...")
+            service.files().update(fileId=file_id, media_body=media).execute()
+        else:
+            logging.info("Creating new processed_episodes.log on Google Drive...")
+            file_metadata = {
+                'name': 'processed_episodes.log',
+                'parents': [folder_id]
+            }
+            service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+            
+        logging.info("Successfully uploaded processed episodes log to Google Drive.")
+        return True
+        
+    except Exception as e:
+        logging.error(f"Error uploading processed episodes log to Google Drive: {e}")
+        return False
+
     

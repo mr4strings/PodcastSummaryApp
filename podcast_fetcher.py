@@ -1,13 +1,17 @@
+import os
+from dotenv import load_dotenv
+# Load environment variables at the very start
+load_dotenv()
+
 import logging
 import feedparser
 from datetime import datetime, timedelta, timezone
 import time
 import requests
-import os
 
 # --- Configuration ---
 # The name of the file where we'll store the IDs of processed episodes.
-PROCESSED_LOG_FILE = os.environ.get("PROCESSED_LOG_FILE", "processed_episodes.log")
+PROCESSED_LOG_FILE = os.environ.get("PROCESSED_LOG_FILE", "processed_episodes.log").strip("'\"")
 
 def _load_processed_ids():
     """
@@ -72,7 +76,7 @@ def get_new_episodes(rss_feeds_file):
                 if not published_time_struct:
                     continue 
 
-                episode_pub_time_utc = datetime.fromtimestamp(time.mktime(published_time_struct), tz=timezone.utc)
+                episode_pub_time_utc = datetime(*published_time_struct[:6], tzinfo=timezone.utc)
                 
                 # --- DUPLICATE CHECK LOGIC ---
                 # A unique ID for the episode, usually a URL or a generated string.
