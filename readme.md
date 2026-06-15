@@ -178,4 +178,17 @@ Because a cloud container cannot launch a local browser to complete the Google O
    - `GOOGLE_DRIVE_CREDENTIALS`: The raw JSON contents of your `credentials.json`.
    - `GOOGLE_DRIVE_TOKEN`: The raw JSON contents of your `token.json`.
    - `RSS_FEEDS`: (Optional) A comma-separated list of RSS feed URLs. If set, this overrides the local `rss_feeds.txt` file, allowing you to edit subscription feeds directly from the Railway dashboard without redeploying.
+   - `PROCESSED_LOG_FILE`: (Optional) Set to `/data/processed_episodes.log` if using a Persistent Volume (highly recommended, see below).
+
+### 3. Setting up Persistent History (Volume)
+Since Railway's filesystem is ephemeral, the `processed_episodes.log` file is deleted every time the container restarts. To persist this log and prevent duplicate processing:
+1. In your Railway dashboard, click **+ New** > **Volume** (or select your service > **Settings** > **Volumes** > **+ Add Volume**).
+2. Set the **Mount Path** of the volume to:
+   ```
+   /data
+   ```
+3. Go back to the **Variables** tab of your service and add the following variable:
+   - **Key:** `PROCESSED_LOG_FILE`
+   - **Value:** `/data/processed_episodes.log`
+4. Deploy the changes. Railway will now save the process log on a persistent disk that survives restarts and code pushes!
 

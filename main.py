@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 GOOGLE_DRIVE_FOLDER_ID = os.environ.get("GOOGLE_DRIVE_FOLDER_ID", "1w6tUaUAoIQPOhxbrwm7kCR6NKP_3oIby")
 RSS_FEEDS_FILE = 'rss_feeds.txt'
 OUTPUT_DIR = 'output_epubs'
-PROCESSED_LOG_FILE = 'processed_episodes.log' # Define the log file name here as well.
+PROCESSED_LOG_FILE = os.environ.get("PROCESSED_LOG_FILE", "processed_episodes.log") # Define the log file name here as well.
 
 def _log_processed_episode(episode_id):
     """Appends a successfully processed episode ID to the log file."""

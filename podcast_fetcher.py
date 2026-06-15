@@ -7,7 +7,7 @@ import os
 
 # --- Configuration ---
 # The name of the file where we'll store the IDs of processed episodes.
-PROCESSED_LOG_FILE = 'processed_episodes.log'
+PROCESSED_LOG_FILE = os.environ.get("PROCESSED_LOG_FILE", "processed_episodes.log")
 
 def _load_processed_ids():
     """
