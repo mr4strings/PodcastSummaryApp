@@ -160,16 +160,13 @@ To keep your credentials secure when sharing this code on GitHub, ensure you fol
 
 Railway is an excellent platform to host the Podcast Summarizer as a background worker process that runs daily.
 
-### 1. System Dependencies (ffmpeg)
-Whisper requires `ffmpeg`. The project includes a `nixpacks.toml` file which tells Railway's build system (Nixpacks) to automatically provision `ffmpeg` at build time.
-
-### 2. Google Drive Headless Authentication
+### 1. Google Drive Headless Authentication
 Because a cloud container cannot launch a local browser to complete the Google OAuth process:
 1. Run the application locally first and complete the authorization. This creates `token.json` in your local directory.
 2. Copy the contents of your local `credentials.json` and `token.json` files.
 3. You will paste these JSON contents into the environment variables on Railway (see below). The application will automatically recreate the files at startup when deployed.
 
-### 3. Railway Configuration
+### 2. Railway Configuration
 1. Create a new service on [Railway](https://railway.app) and link it to your GitHub repository.
 2. In the service settings, set the **Start Command** to:
    ```bash
@@ -178,7 +175,7 @@ Because a cloud container cannot launch a local browser to complete the Google O
 3. Add the following **Environment Variables** in the Railway dashboard:
    - `GEMINI_API_KEY`: Your Google Gemini API Key.
    - `GOOGLE_DRIVE_FOLDER_ID`: The ID of your target Google Drive folder.
-   - `WHISPER_MODEL`: (Optional) Defaults to `base`. Set to `tiny` if you are on a restricted-memory container to prevent Out-Of-Memory (OOM) crashes.
    - `GOOGLE_DRIVE_CREDENTIALS`: The raw JSON contents of your `credentials.json`.
    - `GOOGLE_DRIVE_TOKEN`: The raw JSON contents of your `token.json`.
+   - `RSS_FEEDS`: (Optional) A comma-separated list of RSS feed URLs. If set, this overrides the local `rss_feeds.txt` file, allowing you to edit subscription feeds directly from the Railway dashboard without redeploying.
 

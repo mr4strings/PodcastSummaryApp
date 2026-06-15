@@ -45,7 +45,22 @@ def process_podcasts():
         logging.info(f"Created output directory: {OUTPUT_DIR}")
 
     logging.info("Fetching new podcast episodes...")
-    new_episodes = podcast_fetcher.get_new_episodes(RSS_FEEDS_FILE)
+    feeds_file = RSS_FEEDS_FILE
+    rss_feeds_env = os.environ.get("RSS_FEEDS")
+    if rss_feeds_env:
+        logging.info("RSS_FEEDS environment variable found. Parsing feeds from environment...")
+        urls = [url.strip() for url in rss_feeds_env.replace(",", "\n").replace(";", "\n").split("\n") if url.strip()]
+        feeds_file = 'rss_feeds_temp.txt'
+        with open(feeds_file, 'w') as f:
+            f.write("\n".join(urls))
+            
+    new_episodes = podcast_fetcher.get_new_episodes(feeds_file)
+    
+    if feeds_file == 'rss_feeds_temp.txt' and os.path.exists(feeds_file):
+        try:
+            os.remove(feeds_file)
+        except Exception as e:
+            logging.error(f"Failed to clean up temporary feeds file: {e}")
 
     if not new_episodes:
         logging.info("Podcast check finished.")
