@@ -115,8 +115,8 @@ def transcribe_episode(episode):
 
         logging.info("Audio file is active. Requesting Gemini transcription and diarization...")
         
-        # Use gemini-1.5-flash since it has a 1,500 requests/day free tier quota (vs 20/day on gemini-2.5-flash)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # Use gemini-3.5-flash since it has standard high-quota free tier limits
+        model = genai.GenerativeModel('gemini-3.5-flash')
         
         prompt = """
         Transcribe the following audio recording. Identify and label the speakers (e.g., Nilay, Host, Guest 1, etc.) from context, formatting the output as a script with each speaker's dialogue on a new line. Do not summarize or omit any conversation.
