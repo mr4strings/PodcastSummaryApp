@@ -165,7 +165,33 @@ def main():
     Main entry point of the application. Schedules the job and runs it.
     """
     logging.info("Application started. Scheduling job.")
-    schedule.every().day.at("05:00").do(process_podcasts)
+    
+    # Check if a custom interval is set in environment variables
+    interval_hours = os.environ.get("RUN_INTERVAL_HOURS")
+    interval_minutes = os.environ.get("RUN_INTERVAL_MINUTES")
+    
+    if interval_hours:
+        try:
+            hours = int(interval_hours.strip("'\""))
+            logging.info(f"Custom run interval configured: Every {hours} hour(s).")
+            schedule.every(hours).hours.do(process_podcasts)
+        except ValueError:
+            logging.error(f"Invalid RUN_INTERVAL_HOURS value: '{interval_hours}'. Falling back to default.")
+            schedule.every().day.at("05:00").do(process_podcasts)
+    elif interval_minutes:
+        try:
+            minutes = int(interval_minutes.strip("'\""))
+            logging.info(f"Custom run interval configured: Every {minutes} minute(s).")
+            schedule.every(minutes).minutes.do(process_podcasts)
+        except ValueError:
+            logging.error(f"Invalid RUN_INTERVAL_MINUTES value: '{interval_minutes}'. Falling back to default.")
+            schedule.every().day.at("05:00").do(process_podcasts)
+    else:
+        # Default daily schedule
+        run_time = os.environ.get("RUN_TIME", "05:00").strip("'\"")
+        logging.info(f"Using daily schedule at: {run_time}")
+        schedule.every().day.at(run_time).do(process_podcasts)
+        
     process_podcasts() 
     while True:
         schedule.run_pending()
