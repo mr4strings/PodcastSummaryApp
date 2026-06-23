@@ -12,6 +12,7 @@ import podcast_fetcher
 import transcriber
 import llm_processor
 import epub_generator
+import md_generator
 import google_drive_uploader
 
 # --- Configuration ---
@@ -21,8 +22,11 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 # The ID of the Google Drive folder where you want to save the ePubs.
 # Fallback to the current user's folder ID if not set in the environment.
 GOOGLE_DRIVE_FOLDER_ID = os.environ.get("GOOGLE_DRIVE_FOLDER_ID", "1w6tUaUAoIQPOhxbrwm7kCR6NKP_3oIby").strip("'\"")
+# The ID of the Google Drive folder where you want to save the Markdown files.
+GOOGLE_DRIVE_MD_FOLDER_ID = os.environ.get("GOOGLE_DRIVE_MD_FOLDER_ID", "").strip("'\"")
 RSS_FEEDS_FILE = 'rss_feeds.txt'
 OUTPUT_DIR = 'output_epubs'
+OUTPUT_MD_DIR = 'output_md'
 PROCESSED_LOG_FILE = os.environ.get("PROCESSED_LOG_FILE", "processed_episodes.log").strip("'\"")
 
 def _log_processed_episode(episode_id):
@@ -57,6 +61,10 @@ def process_podcasts():
     if not os.path.exists(OUTPUT_DIR):
         os.makedirs(OUTPUT_DIR)
         logging.info(f"Created output directory: {OUTPUT_DIR}")
+
+    if not os.path.exists(OUTPUT_MD_DIR):
+        os.makedirs(OUTPUT_MD_DIR)
+        logging.info(f"Created output directory: {OUTPUT_MD_DIR}")
 
     # Sync processed log from Google Drive at the beginning of the check
     if GOOGLE_DRIVE_FOLDER_ID != "YOUR_GOOGLE_DRIVE_FOLDER_ID":
@@ -136,22 +144,53 @@ def process_podcasts():
             )
             logging.info(f"ePub file created at: {file_path}")
 
-            # Upload to Google Drive
-            upload_successful = False # Default to false
-            if GOOGLE_DRIVE_FOLDER_ID != "YOUR_GOOGLE_DRIVE_FOLDER_ID":
-                logging.info(f"Uploading to Google Drive...")
-                upload_successful = google_drive_uploader.upload_file_to_drive(file_path, GOOGLE_DRIVE_FOLDER_ID)
-                if upload_successful:
+            # Generate Markdown
+            md_file_name = f"{current_date}_{episode['podcast_title']}_{sanitized_episode_title}.md"
+            md_file_path = os.path.join(OUTPUT_MD_DIR, md_file_name)
+            
+            logging.info("Generating Markdown file...")
+            md_generator.create_markdown(
+                title=episode['title'],
+                podcast_name=episode['podcast_title'],
+                summary=processed_content['summary'],
+                major_points=processed_content['major_points'],
+                quotes=processed_content['quotes'],
+                sources=processed_content['sources'],
+                transcript=formatted_transcript,
+                file_path=md_file_path
+            )
+            logging.info(f"Markdown file created at: {md_file_path}")
+
+            # Upload ePub to Google Drive
+            epub_upload_successful = False
+            if GOOGLE_DRIVE_FOLDER_ID and GOOGLE_DRIVE_FOLDER_ID != "YOUR_GOOGLE_DRIVE_FOLDER_ID":
+                logging.info("Uploading ePub to Google Drive...")
+                epub_upload_successful = google_drive_uploader.upload_file_to_drive(file_path, GOOGLE_DRIVE_FOLDER_ID)
+                if epub_upload_successful:
                     logging.info(f"Successfully uploaded '{file_name}' to Google Drive.")
                 else:
                     logging.error(f"Failed to upload '{file_name}' to Google Drive.")
             else:
-                logging.warning("Google Drive Folder ID is not set. Skipping upload.")
+                logging.warning("Google Drive Folder ID for ePub is not set. Skipping ePub upload.")
+
+            # Upload Markdown to Google Drive
+            md_upload_successful = False
+            if GOOGLE_DRIVE_MD_FOLDER_ID and GOOGLE_DRIVE_MD_FOLDER_ID != "YOUR_GOOGLE_DRIVE_MD_FOLDER_ID" and GOOGLE_DRIVE_MD_FOLDER_ID != "your-google-drive-md-folder-id-here":
+                logging.info("Uploading Markdown to Google Drive...")
+                md_upload_successful = google_drive_uploader.upload_file_to_drive(md_file_path, GOOGLE_DRIVE_MD_FOLDER_ID)
+                if md_upload_successful:
+                    logging.info(f"Successfully uploaded '{md_file_name}' to Google Drive.")
+                else:
+                    logging.error(f"Failed to upload '{md_file_name}' to Google Drive.")
+            else:
+                logging.warning("Google Drive Folder ID for Markdown is not set/configured. Skipping Markdown upload.")
 
             # --- LOG PROCESSED EPISODE (THE FINAL STEP) ---
-            # If the ePub was created and the upload was successful (or skipped),
-            # we log the episode ID to prevent re-processing.
-            if upload_successful or GOOGLE_DRIVE_FOLDER_ID == "YOUR_GOOGLE_DRIVE_FOLDER_ID":
+            # Mark the episode as successfully processed if both uploads succeeded (or were skipped).
+            epub_ok = (not GOOGLE_DRIVE_FOLDER_ID or GOOGLE_DRIVE_FOLDER_ID == "YOUR_GOOGLE_DRIVE_FOLDER_ID") or epub_upload_successful
+            md_ok = (not GOOGLE_DRIVE_MD_FOLDER_ID or GOOGLE_DRIVE_MD_FOLDER_ID == "YOUR_GOOGLE_DRIVE_MD_FOLDER_ID" or GOOGLE_DRIVE_MD_FOLDER_ID == "your-google-drive-md-folder-id-here") or md_upload_successful
+            
+            if epub_ok and md_ok:
                 _log_processed_episode(episode['id'])
 
         except Exception as e:

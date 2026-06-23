@@ -17,6 +17,7 @@ token.json
 
 #Ignore generated output files. There's no need to store these in the repository.
 output_epubs/
+output_md/
 temp_episode.mp3
 processed_episodes.log
 

@@ -85,7 +85,16 @@ def upload_file_to_drive(file_path, folder_id):
             'name': file_name,
             'parents': [folder_id]
         }
-        media = MediaFileUpload(file_path, mimetype='application/epub+zip', resumable=True)
+        
+        # Determine mimetype based on file extension
+        if file_name.lower().endswith('.epub'):
+            mimetype = 'application/epub+zip'
+        elif file_name.lower().endswith('.md'):
+            mimetype = 'text/markdown'
+        else:
+            mimetype = 'application/octet-stream'
+
+        media = MediaFileUpload(file_path, mimetype=mimetype, resumable=True)
         
         file = service.files().create(
             body=file_metadata,
